@@ -678,7 +678,7 @@ pcall(function()
             local hud = pc:GetHUD()
             if hud and hud.AddDebugText then
                 pcall(function()
-                    hud:AddDebugText("🟢 " .. title .. " - " .. message, pc:GetCurPawn(), 1.5, 
+                    hud:AddDebugText("ADITYA BYPASS " .. title .. " - " .. message, pc:GetCurPawn(), 1.5, 
                         {X=0, Y=0, Z=130}, {X=0, Y=0, Z=130}, 
                         {R=0, G=255, B=0, A=255}, true, false, true, nil, 6.0, true)
                 end)
@@ -696,8 +696,8 @@ pcall(function()
             ShowWelcomeMessage(
                 " WELCOME", 
                 " COMPLETE BYPASS ACTIVE\n" ..
-                " 100% Telemetry Killed\n" ..
-                " 12-LAYER ANTI-CHEAT BYPASSED\n" ..
+                " PAR GAME RESTART\n" ..
+                "MATCH END YOUR GAME RE-START \n" ..
                 " Play Safe | Enjoy"
             )
         end)
