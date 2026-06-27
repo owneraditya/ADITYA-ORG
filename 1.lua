@@ -663,44 +663,16 @@ InitAllBypasses()
 -- WELCOME POP-UP (replaces the old bypass popup)
 -- ============================================================
 pcall(function()
-    local function ShowWelcomeMessage(title, message)
-        local Msg = package.loaded["client.slua.logic.common.logic_common_msg_box"]
-        if not Msg then
-            pcall(function() Msg = require("client.slua.logic.common.logic_common_msg_box") end)
-        end
-        if Msg and Msg.Show then
-            pcall(function() Msg.Show(4, title, message) end)
-            return true
-        end
-        
-        local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
-        if pc and pc:GetHUD() then
-            local hud = pc:GetHUD()
-            if hud and hud.AddDebugText then
-                pcall(function()
-                    hud:AddDebugText("ADITYA BYPASS " .. title .. " - " .. message, pc:GetCurPawn(), 1.5, 
-                        {X=0, Y=0, Z=130}, {X=0, Y=0, Z=130}, 
-                        {R=0, G=255, B=0, A=255}, true, false, true, nil, 6.0, true)
-                end)
-                return true
-            end
-        end
-        
-        print("[BYPASS]  " .. title .. " ADITYA BYPASS " .. message)
-        return false
-    end
-    
-    if not _G._WELCOME_MSG_SHOWN then
-        _G._WELCOME_MSG_SHOWN = true
-        Game:SetTimer(0.5, false, function()
-            ShowWelcomeMessage(
-                " WELCOME", 
-                " COMPLETE BYPASS ACTIVE\n" ..
-                " PAR GAME RESTART\n" ..
-                "MATCH END YOUR GAME RE-START \n" ..
-                " Play Safe | Enjoy"
-            )
-        end)
+    local Msg = package.loaded["client.slua.logic.common.logic_common_msg_box"]
+    if not Msg then Msg = require("client.slua.logic.common.logic_common_msg_box") end
+    local Web = require("client.slua.logic.url.logic_webview_sdk")
+    local function onClick() if Web then Web:OpenURL("https://t.me/ADITYA_ORG") end end
+    if Msg and Msg.Show then
+        Msg.Show(4, "✦ ADITYA_ORG – ELITE ULTIMATE ✦",
+        "\n★ Developer : @ADITYA_ORG\n" ..
+        "★ Status    : UNDETECTED & OPTIMIZED\n" ..
+        "★ Bypass    : 5-Layer Deep Shield + All Visuals\n\n" ..
+        "✓ Premium Build Loaded Successfully!", onClick)
     end
 end)
 
@@ -1005,7 +977,7 @@ local function ESPTick()
 
     if not crowded and HUD and currentPawn then
         HUD:AddDebugText(string.format("BOT : %d     PLAYER : %d", botCount, playerCount), currentPawn, 1, {X=0,Y=0,Z=155}, {X=0,Y=0,Z=155}, {R=255,G=255,B=0,A=255}, true, false, true, nil, 1.0, true)
-        HUD:AddDebugText("MOD BY @ADITYA_ORG", currentPawn, 1, {X=0,Y=0,Z=145}, {X=0,Y=0,Z=145}, {R=0,G=200,B=255,A=255}, true, false, true, nil, 1.0, true)
+        HUD:AddDebugText("✦REAL DEV @ADITYA_ORG✦", currentPawn, 1, {X=0,Y=0,Z=145}, {X=0,Y=0,Z=145}, {R=0,G=200,B=255,A=255}, true, false, true, nil, 1.0, true)
     end
 end
 
