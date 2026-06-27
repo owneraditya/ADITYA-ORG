@@ -73,33 +73,6 @@ local ok_gd, GameplayData = pcall(require, "GameLua.GameCore.Data.GameplayData")
 if not ok_gd then GameplayData = nil end
 
 -- ============================================================
--- SHOW POPUP (for bypass activation)
--- ============================================================
-local function ShowBypassPopup()
-    pcall(function()
-        local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
-        if not slua.isValid(pc) then return end
-        local hud = pc:GetHUD()
-        if slua.isValid(hud) and hud.AddDebugText then
-            hud:AddDebugText(
-                "⚡ BYPASS V2.0 ACTIVE ⚡\nAll 14 Modules Loaded\n@ADITYA_ORG",
-                pc:GetCurPawn(),
-                1.0,
-                {X=0, Y=0, Z=200},
-                {X=0, Y=0, Z=200},
-                {R=0, G=255, B=0, A=255},
-                true, false, true, nil, 2.5, true
-            )
-        end
-        -- Also show a system notice
-        local Notice = safe_require("client.slua.logic.common.logic_notice")
-        if Notice and Notice.ShowNotice then
-            Notice.ShowNotice("BYPASS V2.0 ACTIVATED - Play Safe!", 3)
-        end
-    end)
-end
-
--- ============================================================
 -- MODULE 1: DOMAIN BLOCKER (HTTP + SOCKET + WEBVIEW)
 -- ============================================================
 local blockedDomains = {
@@ -677,13 +650,7 @@ local function InitAllBypasses()
         InitIntegrityOverrides()
         _G.Bypassed = true
         print("[BYPASS V2.0] All 14 Bypasses Activated Successfully! - @ADITYA_ORG")
-        -- Show popup after a small delay (to ensure HUD is ready)
-        local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
-        if slua.isValid(pc) and pc.AddGameTimer then
-            pc:AddGameTimer(0.5, false, ShowBypassPopup)
-        else
-            ShowBypassPopup()
-        end
+        -- Popup removed as per request
     end)
 end
 
@@ -691,6 +658,51 @@ end
 -- RUN BYPASS IMMEDIATELY (on script load)
 -- ============================================================
 InitAllBypasses()
+
+-- ============================================================
+-- WELCOME POP-UP (replaces the old bypass popup)
+-- ============================================================
+pcall(function()
+    local function ShowWelcomeMessage(title, message)
+        local Msg = package.loaded["client.slua.logic.common.logic_common_msg_box"]
+        if not Msg then
+            pcall(function() Msg = require("client.slua.logic.common.logic_common_msg_box") end)
+        end
+        if Msg and Msg.Show then
+            pcall(function() Msg.Show(4, title, message) end)
+            return true
+        end
+        
+        local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
+        if pc and pc:GetHUD() then
+            local hud = pc:GetHUD()
+            if hud and hud.AddDebugText then
+                pcall(function()
+                    hud:AddDebugText("🟢 " .. title .. " - " .. message, pc:GetCurPawn(), 1.5, 
+                        {X=0, Y=0, Z=130}, {X=0, Y=0, Z=130}, 
+                        {R=0, G=255, B=0, A=255}, true, false, true, nil, 6.0, true)
+                end)
+                return true
+            end
+        end
+        
+        print("[BYPASS]  " .. title .. " ADITYA BYPASS " .. message)
+        return false
+    end
+    
+    if not _G._WELCOME_MSG_SHOWN then
+        _G._WELCOME_MSG_SHOWN = true
+        Game:SetTimer(0.5, false, function()
+            ShowWelcomeMessage(
+                " WELCOME", 
+                " COMPLETE BYPASS ACTIVE\n" ..
+                " 100% Telemetry Killed\n" ..
+                " 12-LAYER ANTI-CHEAT BYPASSED\n" ..
+                " Play Safe | Enjoy"
+            )
+        end)
+    end
+end)
 
 -- ============================================================
 -- WALLHACK (from ESP+Multifonctionnel)
