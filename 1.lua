@@ -16,30 +16,38 @@ do
 end
 
 -- ============================================================
--- FEATURE TOGGLES (existing)
+-- FEATURE TOGGLES (updated with ESPConfig)
 -- ============================================================
 if not _G.Mod_Aimbot_Enabled then _G.Mod_Aimbot_Enabled = false end
 if not _G.Mod_ESP_Enabled then _G.Mod_ESP_Enabled = false end
-if _G.Mod_Wallhack_Enabled == nil then _G.Mod_Wallhack_Enabled = false end
+if _G.Mod_Wallhack_Enabled == nil then _G.Mod_Wallhack_Enabled = false end   -- kept for compatibility
 if _G.Mod_FPS165_Enabled == nil then _G.Mod_FPS165_Enabled = true end
 if _G.Mod_NoGrass_Enabled == nil then _G.Mod_NoGrass_Enabled = false end
 if _G.Mod_iPadView_Enabled == nil then _G.Mod_iPadView_Enabled = false end
-
 if _G.Mod_iPadViewDistance == nil then _G.Mod_iPadViewDistance = 90 end
+
+-- ============================================================
+-- ESP CONFIG (new for wallhack colors/glow/brightness)
+-- ============================================================
+_G.ESPConfig = _G.ESPConfig or {
+    Wallhack = false,                       -- main toggle
+    WallhackVisibleColor = 4,               -- 1=Red,2=White,3=Yellow,4=Green,5=Cyan,6=Blue,7=Purple
+    WallhackInvisibleColor = 3,             -- same mapping
+    WallhackBrightness = 25,                -- 1..50
+    WallhackGlow = 3.0,                     -- 0..10
+    ShowAI = true,
+}
+-- Keep the old toggle in sync
+_G.Mod_Wallhack_Enabled = _G.ESPConfig.Wallhack
 
 if _G.Mod_Chams_GreenEnabled == nil then _G.Mod_Chams_GreenEnabled = false end
 if _G.Mod_Chams_YellowEnabled == nil then _G.Mod_Chams_YellowEnabled = false end
 if _G.Mod_Chams_GreenRGB == nil then _G.Mod_Chams_GreenRGB = {R=0, G=255, B=0, A=255} end
 if _G.Mod_Chams_YellowRGB == nil then _G.Mod_Chams_YellowRGB = {R=255, G=255, B=0, A=255} end
 
--- ESPConfig for wallhack (merged with Glow)
+-- ESPConfig (kept for other possible uses, but wallhack no longer uses it)
 _G.ESPConfig = _G.ESPConfig or {
-    Wallhack = false,
-    WallhackVisibleColor = 1,
-    WallhackInvisibleColor = 2,
-    WallhackBrightness = 25,
-    WallhackGlow = 3.0,
-    ShowAI = true,
+    RemoveGrass = false,   -- only grass toggle remains
 }
 
 local require = require
@@ -677,158 +685,176 @@ pcall(function()
 end)
 
 -- ============================================================
--- WALLHACK (FIXED – all meshes & all material slots)
+-- STANDALONE WALLHACK (ZeroX6T style) - NOW WITH CUSTOM COLORS
 -- ============================================================
-function ApplyWallhack()
+
+-- Helper to convert color number to RGB table
+local function GetColorFromIndex(idx)
+    local colors = {
+        {R=255,G=0,B=0},   -- 1 Red
+        {R=255,G=255,B=255}, -- 2 White
+        {R=255,G=255,B=0}, -- 3 Yellow
+        {R=0,G=255,B=0},   -- 4 Green
+        {R=0,G=255,B=255}, -- 5 Cyan
+        {R=0,G=0,B=255},   -- 6 Blue
+        {R=255,G=0,B=255}, -- 7 Purple
+    }
+    return colors[idx] or colors[4]
+end
+
+local function ApplyWallHack()
+    -- Use ESPConfig for main toggle
+    if not _G.CheatsEnabled then return end
     if not _G.ESPConfig.Wallhack then return end
-    pcall(function()
-        local localPlayer = GameplayData.GetPlayerCharacter()
-        if not slua.isValid(localPlayer) then return end
-        local pc = slua_GameFrontendHUD:GetPlayerController()
-        if not slua.isValid(pc) then return end
-        local myTeam = localPlayer.TeamID or 0
-        local allCharacters = Game:GetAllPlayerPawns()
-        if not allCharacters then return end
 
-        local brightness = _G.ESPConfig.WallhackBrightness or 25
-        local visibleColorIndex = _G.ESPConfig.WallhackVisibleColor or 1
-        local invisibleColorIndex = _G.ESPConfig.WallhackInvisibleColor or 2
-        local glow = _G.ESPConfig.WallhackGlow or 3.0
+    local localPlayer = GameplayData and GameplayData.GetPlayerCharacter()
+    if not localPlayer or not slua.isValid(localPlayer) then return end
 
-        local colorMap = {
-            [1] = {R=brightness, G=0, B=0, A=1},
-            [2] = {R=brightness, G=brightness, B=brightness, A=1},
-            [3] = {R=brightness, G=brightness, B=0, A=1},
-            [4] = {R=0, G=brightness, B=0, A=1},
-            [5] = {R=0, G=brightness, B=brightness, A=1},
-            [6] = {R=0, G=0, B=brightness, A=1},
-            [7] = {R=brightness, G=0, B=brightness, A=1}
-        }
+    local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
+    if not pc or not slua.isValid(pc) then return end
 
-        for _, enemy in pairs(allCharacters) do
-            if slua.isValid(enemy) and enemy ~= localPlayer then
-                local targetTeam = enemy.TeamID or 0
-                if targetTeam == myTeam then goto continue end
-                local isAI = enemy.TeamID and enemy.TeamID > 100
-                if not _G.ESPConfig.ShowAI and isAI then goto continue end
-                local isAlive = false
-                pcall(function() isAlive = enemy:IsAlive() end)
-                if not isAlive then goto continue end
+    local myTeam = localPlayer.TeamID or 0
+    local allCharacters = Game:GetAllPlayerPawns()
+    if not allCharacters then return end
 
-                -- सभी स्केलेटल मेश इकट्ठा करें
-                local meshes = {}
-                if slua.isValid(enemy.Mesh) then
-                    table.insert(meshes, enemy.Mesh)
-                end
-                local SkelClass = import("SkeletalMeshComponent")
-                if SkelClass then
-                    local childs = enemy:GetComponentsByClass(SkelClass)
-                    if childs then
-                        local count = childs:Num()
-                        for i = 0, count - 1 do
-                            local comp = childs:Get(i)
-                            if slua.isValid(comp) and comp ~= enemy.Mesh then
-                                table.insert(meshes, comp)
-                            end
-                        end
-                    end
-                end
+    local cfg = _G.ESPConfig
+    local brightnessFactor = cfg.WallhackBrightness / 25.0   -- 1..50 → 0.04..2.0
+    local glowIntensity = cfg.WallhackGlow                   -- 0..10
 
-                -- हर मेश पर MID सेट करें
-                for _, comp in ipairs(meshes) do
-                    if slua.isValid(comp) then
-                        -- बेस सेटिंग (एक बार)
-                        comp.UseScopeDistanceCulling = false
-                        comp.PrimitiveShadingStrategy = 1
-                        comp.ShadingRate = 6
+    for _, enemy in pairs(allCharacters) do
+        if slua.isValid(enemy) and enemy ~= localPlayer then
+            local targetTeam = enemy.TeamID or 0
+            if targetTeam == myTeam then goto continue end
 
-                        -- मटेरियल स्लॉट्स की संख्या
-                        local numMat = 0
-                        pcall(function() numMat = comp:GetNumMaterials() end)
-                        if numMat == 0 then numMat = 8 end  -- fallback
+            -- Check alive
+            local isAlive = false
+            pcall(function() isAlive = enemy:IsAlive() end)
+            if not isAlive then goto continue end
 
-                        -- MID कैश
-                        local compKey = tostring(comp)
-                        if not enemy.WH_MIDs then enemy.WH_MIDs = {} end
-                        if not enemy.WH_MIDs[compKey] then enemy.WH_MIDs[compKey] = {} end
+            -- Skip AI if ShowAI is false
+            if not cfg.ShowAI then
+                local isBot = false
+                pcall(function() isBot = Game:IsAI(enemy) end)
+                if isBot then goto continue end
+            end
 
-                        for slot = 0, numMat - 1 do
-                            local ok, mat = pcall(function() return comp:GetMaterial(slot) end)
-                            if ok and mat and slua.isValid(mat) then
-                                local mid = enemy.WH_MIDs[compKey][slot]
-                                if not mid or not slua.isValid(mid) then
-                                    -- नया MID बनाएँ
-                                    local newMid = nil
-                                    pcall(function()
-                                        newMid = comp:CreateAndSetMaterialInstanceDynamic(slot)
-                                    end)
-                                    if slua.isValid(newMid) then
-                                        mid = newMid
-                                        enemy.WH_MIDs[compKey][slot] = mid
-                                    else
-                                        -- वैकल्पिक तरीका
-                                        pcall(function()
-                                            mid = comp:GetMaterialInstanceDynamic(slot)
-                                        end)
-                                        if slua.isValid(mid) then
-                                            enemy.WH_MIDs[compKey][slot] = mid
-                                        end
-                                    end
-                                end
-
-                                -- अगर MID है तो पैरामीटर सेट करें
-                                if slua.isValid(mid) then
-                                    local isVisible = false
-                                    if slua.isValid(pc) and type(pc.LineOfSightTo) == "function" then
-                                        pcall(function() isVisible = pc:LineOfSightTo(enemy) end)
-                                    end
-                                    local finalColor = isVisible and colorMap[visibleColorIndex] or colorMap[invisibleColorIndex]
-                                    local scale = {R=3, G=3, B=0, A=0}
-
-                                    pcall(function()
-                                        mid:SetVectorParameterValue("颜色", finalColor)
-                                        mid:SetVectorParameterValue("Extra Light Color", finalColor)
-                                        mid:SetVectorParameterValue("Para_Color", finalColor)
-                                        mid:SetVectorParameterValue("Para_ColorTint", finalColor)
-                                        mid:SetVectorParameterValue("Para_Color_1", finalColor)
-                                        mid:SetVectorParameterValue("Tint", finalColor)
-                                        mid:SetVectorParameterValue("Color", finalColor)
-                                        mid:SetVectorParameterValue("BaseColor", finalColor)
-                                        mid:SetVectorParameterValue("BodyColor", finalColor)
-                                        mid:SetVectorParameterValue("MainColor", finalColor)
-                                        mid:SetVectorParameterValue("DiffuseColor", finalColor)
-                                        mid:SetVectorParameterValue("EmissiveColor", finalColor)
-                                        mid:SetVectorParameterValue("ParaScaleOffset", scale)
-                                        mid:SetScalarParameterValue("Glow", glow)
-                                        mid:SetScalarParameterValue("Emissive", glow)
-                                    end)
-                                end
-                            end
+            -- Collect all skeletal meshes
+            local meshes = {}
+            if slua.isValid(enemy.Mesh) then
+                table.insert(meshes, enemy.Mesh)
+            end
+            local SkelClass = import("SkeletalMeshComponent")
+            if SkelClass then
+                local childs = enemy:GetComponentsByClass(SkelClass)
+                if childs then
+                    local count = type(childs.Num) == "function" and childs:Num() or #childs
+                    for c = 1, count do
+                        local comp = type(childs.Get) == "function" and childs:Get(c-1) or childs[c]
+                        if slua.isValid(comp) and comp ~= enemy.Mesh then
+                            table.insert(meshes, comp)
                         end
                     end
                 end
             end
-            ::continue::
+
+            -- Determine visibility
+            local isVisible = false
+            if slua.isValid(pc) and type(pc.LineOfSightTo) == "function" then
+                pcall(function() isVisible = pc:LineOfSightTo(enemy) end)
+            end
+
+            -- Select color based on visibility
+            local colorIdx = isVisible and cfg.WallhackVisibleColor or cfg.WallhackInvisibleColor
+            local baseColor = GetColorFromIndex(colorIdx)
+            -- Apply brightness
+            local finalColor = {
+                R = math.min(255, math.floor(baseColor.R * brightnessFactor)),
+                G = math.min(255, math.floor(baseColor.G * brightnessFactor)),
+                B = math.min(255, math.floor(baseColor.B * brightnessFactor)),
+                A = 255
+            }
+            -- Glow: we'll set a scalar parameter if the material supports it
+            local glowVec = {R=glowIntensity*255, G=glowIntensity*255, B=glowIntensity*255, A=0} -- maybe used as emissive scale
+
+            -- Apply to each mesh
+            enemy._WH_MIDs = enemy._WH_MIDs or {}
+            for _, comp in ipairs(meshes) do
+                if slua.isValid(comp) then
+                    -- Disable depth test and adjust shading
+                    local ok, mat = pcall(function() return comp:GetMaterial(0) end)
+                    if ok and slua.isValid(mat) then
+                        local ok2, base = pcall(function() return mat:GetBaseMaterial() end)
+                        if ok2 and slua.isValid(base) then
+                            base.bDisableDepthTest = true
+                            base.BlendMode = 2
+                        end
+                    end
+                    comp.UseScopeDistanceCulling = false
+                    comp.PrimitiveShadingStrategy = 1
+                    comp.ShadingRate = 6
+
+                    local ck = tostring(comp)
+                    enemy._WH_MIDs[ck] = enemy._WH_MIDs[ck] or {}
+                    for i = 0, 10 do
+                        local ok3, mi = pcall(function() return comp:GetMaterial(i) end)
+                        if not ok3 or not slua.isValid(mi) then break end
+                        local mid = enemy._WH_MIDs[ck][i]
+                        if not slua.isValid(mid) then
+                            local ok4, nm = pcall(function() return comp:CreateAndSetMaterialInstanceDynamic(i) end)
+                            if ok4 and slua.isValid(nm) then
+                                enemy._WH_MIDs[ck][i] = nm
+                                mid = nm
+                            end
+                        end
+                        if slua.isValid(mid) then
+                            pcall(function()
+                                mid:SetVectorParameterValue("颜色", finalColor)
+                                mid:SetVectorParameterValue("Color", finalColor)
+                                mid:SetVectorParameterValue("BaseColor", finalColor)
+                                mid:SetVectorParameterValue("BodyColor", finalColor)
+                                mid:SetVectorParameterValue("DiffuseColor", finalColor)
+                                -- Glow: try common emissive/glow parameters
+                                mid:SetScalarParameterValue("EmissiveIntensity", glowIntensity)
+                                mid:SetScalarParameterValue("GlowIntensity", glowIntensity)
+                                mid:SetScalarParameterValue("EmissiveScale", glowIntensity)
+                                mid:SetVectorParameterValue("EmissiveColor", {R=finalColor.R*glowIntensity, G=finalColor.G*glowIntensity, B=finalColor.B*glowIntensity, A=255})
+                                mid:SetVectorParameterValue("ParaScaleOffset", glowVec)
+                            end)
+                        end
+                    end
+                end
+            end
         end
-    end)
+        ::continue::
+    end
 end
 
--- Start wallhack timer (with auto‑restart on controller change)
+-- ============================================================
+-- WALLHACK TIMER (runs every 0.1 seconds)
+-- ============================================================
 local function StartWallhackTimer()
     local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
     if slua.isValid(pc) and pc.AddGameTimer then
-        if _G._WallhackTimer then pc:RemoveGameTimer(_G._WallhackTimer) end
-        _G._WallhackTimer = pc:AddGameTimer(0.1, true, ApplyWallhack)
+        if _G._WallhackTimer then
+            pcall(function() pc:RemoveGameTimer(_G._WallhackTimer) end)
+        end
+        _G._WallhackTimer = pc:AddGameTimer(0.1, true, function()
+            pcall(ApplyWallHack)
+        end)
     end
 end
-pcall(function() StartWallhackTimer() end)
 
--- हर 2 सेकंड पर टाइमर रीस्टार्ट करें (अगर कंट्रोलर बदला हो)
+-- Start immediately if possible, otherwise wait for controller
+pcall(function()
+    StartWallhackTimer()
+end)
+
+-- Watchdog: restart timer if controller changes (every 2 seconds)
 pcall(function()
     local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
     if slua.isValid(pc) and pc.AddGameTimer then
         pc:AddGameTimer(2.0, true, function()
-            if not _G._WallhackTimer or not slua.isValid(_G._WallhackTimer) then
+            if not _G._WallhackTimer then
                 StartWallhackTimer()
             end
         end)
@@ -1304,7 +1330,7 @@ pcall(function()
 end)
 
 -- ============================================================
--- MENU (with Wallhack + Glow settings)
+-- MENU (updated: new wallhack section)
 -- ============================================================
 _G.InitModMenuTab = function()
     local LocUtil = _G.LocUtil
@@ -1354,6 +1380,83 @@ _G.InitModMenuTab = function()
                     return true
                 end
             },
+            -- ===== NEW WALLHACK SECTION =====
+            { UI = AliasMap.Title, Text = "--- WALLHACK ---" },
+            {
+                Key = "WH_Enabled",
+                UI = AliasMap.TitleSwitcher,
+                Text = "Wallhack",
+                GetFunc = function() return _G.ESPConfig.Wallhack end,
+                SetFunc = function(_, value)
+                    _G.ESPConfig.Wallhack = value
+                    _G.Mod_Wallhack_Enabled = value   -- keep sync
+                    print("[MOD] WALLHACK: " .. (value and "ON ✓" or "OFF ✗"))
+                    return true
+                end
+            },
+            {
+                Key = "WH_VisibleColor",
+                UI = AliasMap.Switcher,
+                Text = "Visible Color",
+                SwitcherText = {"Red","White","Yellow","Green","Cyan","Blue","Purple"},
+                SwitcherValue = {1,2,3,4,5,6,7},
+                GetFunc = function() return _G.ESPConfig.WallhackVisibleColor or 4 end,
+                SetFunc = function(_, value)
+                    _G.ESPConfig.WallhackVisibleColor = value
+                    return true
+                end
+            },
+            {
+                Key = "WH_InvisibleColor",
+                UI = AliasMap.Switcher,
+                Text = "Invisible Color",
+                SwitcherText = {"Red","White","Yellow","Green","Cyan","Blue","Purple"},
+                SwitcherValue = {1,2,3,4,5,6,7},
+                GetFunc = function() return _G.ESPConfig.WallhackInvisibleColor or 3 end,
+                SetFunc = function(_, value)
+                    _G.ESPConfig.WallhackInvisibleColor = value
+                    return true
+                end
+            },
+            {
+                Key = "WH_Brightness",
+                UI = AliasMap.Slider,
+                Text = "Brightness",
+                Min = 1,
+                Max = 50,
+                Step = 1,
+                IsPercent = false,
+                GetFunc = function() return _G.ESPConfig.WallhackBrightness or 25 end,
+                SetFunc = function(_, value)
+                    _G.ESPConfig.WallhackBrightness = value
+                    return true
+                end
+            },
+            {
+                Key = "WH_Glow",
+                UI = AliasMap.Slider,
+                Text = "Glow Intensity",
+                Min = 0,
+                Max = 10,
+                Step = 0.5,
+                IsPercent = false,
+                GetFunc = function() return _G.ESPConfig.WallhackGlow or 3.0 end,
+                SetFunc = function(_, value)
+                    _G.ESPConfig.WallhackGlow = value
+                    return true
+                end
+            },
+            {
+                Key = "WH_ShowAI",
+                UI = AliasMap.TitleSwitcher,
+                Text = "Show AI",
+                GetFunc = function() return _G.ESPConfig.ShowAI end,
+                SetFunc = function(_, value)
+                    _G.ESPConfig.ShowAI = value
+                    return true
+                end
+            },
+            -- ===== END WALLHACK SECTION =====
             {
                 Key = "FPS165",
                 UI = AliasMap.Switcher,
@@ -1395,83 +1498,6 @@ _G.InitModMenuTab = function()
                     _G.Mod_iPadView_Enabled = value
                     if value then _G.EnableiPadViewUI() end
                     print("[MOD] IPAD VIEW: " .. (value and "ON ✓" or "OFF ✗"))
-                    return true
-                end
-            },
-
-            -- Wallhack section (merged with Glow)
-            { UI = AliasMap.Title, Text = "--- WALLHACK ---" },
-            {
-                Key = "WH_Enabled",
-                UI = AliasMap.TitleSwitcher,
-                Text = "Wallhack",
-                GetFunc = function() return _G.ESPConfig.Wallhack end,
-                SetFunc = function(_, value)
-                    _G.ESPConfig.Wallhack = value
-                    print("[MOD] WALLHACK: " .. (value and "ON ✓" or "OFF ✗"))
-                    return true
-                end
-            },
-            {
-                Key = "WH_VisibleColor",
-                UI = AliasMap.Switcher,
-                Text = "Visible Color",
-                SwitcherText = {"Red","White","Yellow","Green","Cyan","Blue","Purple"},
-                SwitcherValue = {1,2,3,4,5,6,7},
-                GetFunc = function() return _G.ESPConfig.WallhackVisibleColor or 1 end,
-                SetFunc = function(_, value)
-                    _G.ESPConfig.WallhackVisibleColor = value
-                    return true
-                end
-            },
-            {
-                Key = "WH_InvisibleColor",
-                UI = AliasMap.Switcher,
-                Text = "Invisible Color",
-                SwitcherText = {"Red","White","Yellow","Green","Cyan","Blue","Purple"},
-                SwitcherValue = {1,2,3,4,5,6,7},
-                GetFunc = function() return _G.ESPConfig.WallhackInvisibleColor or 2 end,
-                SetFunc = function(_, value)
-                    _G.ESPConfig.WallhackInvisibleColor = value
-                    return true
-                end
-            },
-            {
-                Key = "WH_Brightness",
-                UI = AliasMap.Slider,
-                Text = "Brightness",
-                Min = 1,
-                Max = 50,
-                Step = 1,
-                IsPercent = false,
-                GetFunc = function() return _G.ESPConfig.WallhackBrightness or 25 end,
-                SetFunc = function(_, value)
-                    _G.ESPConfig.WallhackBrightness = value
-                    return true
-                end
-            },
-            -- NEW GLOW SLIDER
-            {
-                Key = "WH_Glow",
-                UI = AliasMap.Slider,
-                Text = "Glow Intensity",
-                Min = 0,
-                Max = 10,
-                Step = 0.5,
-                IsPercent = false,
-                GetFunc = function() return _G.ESPConfig.WallhackGlow or 3.0 end,
-                SetFunc = function(_, value)
-                    _G.ESPConfig.WallhackGlow = value
-                    return true
-                end
-            },
-            {
-                Key = "WH_ShowAI",
-                UI = AliasMap.TitleSwitcher,
-                Text = "Show AI",
-                GetFunc = function() return _G.ESPConfig.ShowAI end,
-                SetFunc = function(_, value)
-                    _G.ESPConfig.ShowAI = value
                     return true
                 end
             }
