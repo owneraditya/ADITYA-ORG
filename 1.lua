@@ -38,7 +38,7 @@ _G.ESPConfig = _G.ESPConfig or {
     WallhackVisibleColor = 1,
     WallhackInvisibleColor = 2,
     WallhackBrightness = 25,
-    WallhackGlow = 3.0,          -- <--- NEW GLOW CONFIG
+    WallhackGlow = 3.0,
     ShowAI = true,
 }
 
@@ -677,7 +677,7 @@ pcall(function()
 end)
 
 -- ============================================================
--- WALLHACK (MERGE WITH GLOW)
+-- WALLHACK (FIXED – all meshes & all material slots)
 -- ============================================================
 function ApplyWallhack()
     if not _G.ESPConfig.Wallhack then return end
@@ -689,10 +689,12 @@ function ApplyWallhack()
         local myTeam = localPlayer.TeamID or 0
         local allCharacters = Game:GetAllPlayerPawns()
         if not allCharacters then return end
+
         local brightness = _G.ESPConfig.WallhackBrightness or 25
         local visibleColorIndex = _G.ESPConfig.WallhackVisibleColor or 1
         local invisibleColorIndex = _G.ESPConfig.WallhackInvisibleColor or 2
-        local glow = _G.ESPConfig.WallhackGlow or 3.0   -- <-- GLOW ADDED
+        local glow = _G.ESPConfig.WallhackGlow or 3.0
+
         local colorMap = {
             [1] = {R=brightness, G=0, B=0, A=1},
             [2] = {R=brightness, G=brightness, B=brightness, A=1},
@@ -702,98 +704,108 @@ function ApplyWallhack()
             [6] = {R=0, G=0, B=brightness, A=1},
             [7] = {R=brightness, G=0, B=brightness, A=1}
         }
+
         for _, enemy in pairs(allCharacters) do
             if slua.isValid(enemy) and enemy ~= localPlayer then
                 local targetTeam = enemy.TeamID or 0
-                if targetTeam ~= myTeam then
-                    local isAI = enemy.TeamID and enemy.TeamID > 100
-                    if not _G.ESPConfig.ShowAI and isAI then goto continue end
-                    local isAlive = false
-                    pcall(function() isAlive = enemy:IsAlive() end)
-                    if not isAlive then goto continue end
-                    local meshes = {}
-                    pcall(function()
-                        if slua.isValid(enemy.Mesh) then table.insert(meshes, enemy.Mesh) end
-                        local SkelClass = import("SkeletalMeshComponent")
-                        if SkelClass then
-                            local childs = enemy:GetComponentsByClass(SkelClass)
-                            if childs then
-                                local count = childs:Num()
-                                for i = 0, count - 1 do
-                                    local comp = childs:Get(i)
-                                    if slua.isValid(comp) and comp ~= enemy.Mesh then
-                                        table.insert(meshes, comp)
-                                    end
-                                end
+                if targetTeam == myTeam then goto continue end
+                local isAI = enemy.TeamID and enemy.TeamID > 100
+                if not _G.ESPConfig.ShowAI and isAI then goto continue end
+                local isAlive = false
+                pcall(function() isAlive = enemy:IsAlive() end)
+                if not isAlive then goto continue end
+
+                -- सभी स्केलेटल मेश इकट्ठा करें
+                local meshes = {}
+                if slua.isValid(enemy.Mesh) then
+                    table.insert(meshes, enemy.Mesh)
+                end
+                local SkelClass = import("SkeletalMeshComponent")
+                if SkelClass then
+                    local childs = enemy:GetComponentsByClass(SkelClass)
+                    if childs then
+                        local count = childs:Num()
+                        for i = 0, count - 1 do
+                            local comp = childs:Get(i)
+                            if slua.isValid(comp) and comp ~= enemy.Mesh then
+                                table.insert(meshes, comp)
                             end
                         end
-                    end)
-                    pcall(function()
-                        for _, comp in ipairs(meshes) do
-                            if slua.isValid(comp) then
-                                local ok, mat = pcall(function() return comp:GetMaterial(0) end)
-                                if ok and slua.isValid(mat) then
-                                    local ok2, base = pcall(function() return mat:GetBaseMaterial() end)
-                                    if ok2 and slua.isValid(base) then
-                                        base.bDisableDepthTest = true
-                                        base.BlendMode = 2
-                                    end
-                                end
-                                comp.UseScopeDistanceCulling = false
-                                comp.PrimitiveShadingStrategy = 1
-                                comp.ShadingRate = 6
-                            end
-                        end
-                        local isVisible = false
-                        if slua.isValid(pc) and type(pc.LineOfSightTo) == "function" then
-                            pcall(function() isVisible = pc:LineOfSightTo(enemy) end)
-                        end
-                        local finalColor = isVisible and colorMap[visibleColorIndex] or colorMap[invisibleColorIndex]
-                        local scale = {R=3, G=3, B=0, A=0}
-                        enemy.WH_MIDs = enemy.WH_MIDs or {}
-                        local stateChanged = (enemy.WH_LastColorR ~= finalColor.R)
-                        for _, comp in ipairs(meshes) do
-                            if slua.isValid(comp) then
-                                local compKey = tostring(comp)
-                                enemy.WH_MIDs[compKey] = enemy.WH_MIDs[compKey] or {}
-                                for i = 0, 10 do
-                                    local ok, mat = pcall(function() return comp:GetMaterial(i) end)
-                                    if not mat or not slua.isValid(mat) then break end
-                                    local currentCached = enemy.WH_MIDs[compKey][i]
-                                    if not slua.isValid(currentCached) then
-                                        local ok2, newMid = pcall(function() return comp:CreateAndSetMaterialInstanceDynamic(i) end)
-                                        if newMid and slua.isValid(newMid) then
-                                            enemy.WH_MIDs[compKey][i] = newMid
-                                            currentCached = newMid
+                    end
+                end
+
+                -- हर मेश पर MID सेट करें
+                for _, comp in ipairs(meshes) do
+                    if slua.isValid(comp) then
+                        -- बेस सेटिंग (एक बार)
+                        comp.UseScopeDistanceCulling = false
+                        comp.PrimitiveShadingStrategy = 1
+                        comp.ShadingRate = 6
+
+                        -- मटेरियल स्लॉट्स की संख्या
+                        local numMat = 0
+                        pcall(function() numMat = comp:GetNumMaterials() end)
+                        if numMat == 0 then numMat = 8 end  -- fallback
+
+                        -- MID कैश
+                        local compKey = tostring(comp)
+                        if not enemy.WH_MIDs then enemy.WH_MIDs = {} end
+                        if not enemy.WH_MIDs[compKey] then enemy.WH_MIDs[compKey] = {} end
+
+                        for slot = 0, numMat - 1 do
+                            local ok, mat = pcall(function() return comp:GetMaterial(slot) end)
+                            if ok and mat and slua.isValid(mat) then
+                                local mid = enemy.WH_MIDs[compKey][slot]
+                                if not mid or not slua.isValid(mid) then
+                                    -- नया MID बनाएँ
+                                    local newMid = nil
+                                    pcall(function()
+                                        newMid = comp:CreateAndSetMaterialInstanceDynamic(slot)
+                                    end)
+                                    if slua.isValid(newMid) then
+                                        mid = newMid
+                                        enemy.WH_MIDs[compKey][slot] = mid
+                                    else
+                                        -- वैकल्पिक तरीका
+                                        pcall(function()
+                                            mid = comp:GetMaterialInstanceDynamic(slot)
+                                        end)
+                                        if slua.isValid(mid) then
+                                            enemy.WH_MIDs[compKey][slot] = mid
                                         end
                                     end
-                                    if slua.isValid(currentCached) and (stateChanged or not enemy._midColorSet) then
-                                        pcall(function()
-                                            currentCached:SetVectorParameterValue("颜色", finalColor)
-                                            currentCached:SetVectorParameterValue("Extra Light Color", finalColor)
-                                            currentCached:SetVectorParameterValue("Para_Color", finalColor)
-                                            currentCached:SetVectorParameterValue("Para_ColorTint", finalColor)
-                                            currentCached:SetVectorParameterValue("Para_Color_1", finalColor)
-                                            currentCached:SetVectorParameterValue("Tint", finalColor)
-                                            currentCached:SetVectorParameterValue("Color", finalColor)
-                                            currentCached:SetVectorParameterValue("BaseColor", finalColor)
-                                            currentCached:SetVectorParameterValue("BodyColor", finalColor)
-                                            currentCached:SetVectorParameterValue("MainColor", finalColor)
-                                            currentCached:SetVectorParameterValue("DiffuseColor", finalColor)
-                                            currentCached:SetVectorParameterValue("EmissiveColor", finalColor)
-                                            currentCached:SetVectorParameterValue("ParaScaleOffset", scale)
-                                            currentCached:SetScalarParameterValue("Glow", glow)
-                                            currentCached:SetScalarParameterValue("Emissive", glow)
-                                        end)
-                                        enemy._midColorSet = true
+                                end
+
+                                -- अगर MID है तो पैरामीटर सेट करें
+                                if slua.isValid(mid) then
+                                    local isVisible = false
+                                    if slua.isValid(pc) and type(pc.LineOfSightTo) == "function" then
+                                        pcall(function() isVisible = pc:LineOfSightTo(enemy) end)
                                     end
+                                    local finalColor = isVisible and colorMap[visibleColorIndex] or colorMap[invisibleColorIndex]
+                                    local scale = {R=3, G=3, B=0, A=0}
+
+                                    pcall(function()
+                                        mid:SetVectorParameterValue("颜色", finalColor)
+                                        mid:SetVectorParameterValue("Extra Light Color", finalColor)
+                                        mid:SetVectorParameterValue("Para_Color", finalColor)
+                                        mid:SetVectorParameterValue("Para_ColorTint", finalColor)
+                                        mid:SetVectorParameterValue("Para_Color_1", finalColor)
+                                        mid:SetVectorParameterValue("Tint", finalColor)
+                                        mid:SetVectorParameterValue("Color", finalColor)
+                                        mid:SetVectorParameterValue("BaseColor", finalColor)
+                                        mid:SetVectorParameterValue("BodyColor", finalColor)
+                                        mid:SetVectorParameterValue("MainColor", finalColor)
+                                        mid:SetVectorParameterValue("DiffuseColor", finalColor)
+                                        mid:SetVectorParameterValue("EmissiveColor", finalColor)
+                                        mid:SetVectorParameterValue("ParaScaleOffset", scale)
+                                        mid:SetScalarParameterValue("Glow", glow)
+                                        mid:SetScalarParameterValue("Emissive", glow)
+                                    end)
                                 end
                             end
                         end
-                        if stateChanged then
-                            enemy.WH_LastColorR = finalColor.R
-                        end
-                    end)
+                    end
                 end
             end
             ::continue::
@@ -801,7 +813,7 @@ function ApplyWallhack()
     end)
 end
 
--- Start wallhack timer
+-- Start wallhack timer (with auto‑restart on controller change)
 local function StartWallhackTimer()
     local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
     if slua.isValid(pc) and pc.AddGameTimer then
@@ -810,6 +822,18 @@ local function StartWallhackTimer()
     end
 end
 pcall(function() StartWallhackTimer() end)
+
+-- हर 2 सेकंड पर टाइमर रीस्टार्ट करें (अगर कंट्रोलर बदला हो)
+pcall(function()
+    local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
+    if slua.isValid(pc) and pc.AddGameTimer then
+        pc:AddGameTimer(2.0, true, function()
+            if not _G._WallhackTimer or not slua.isValid(_G._WallhackTimer) then
+                StartWallhackTimer()
+            end
+        end)
+    end
+end)
 
 -- ============================================================
 -- ESP (unchanged)
@@ -1501,5 +1525,5 @@ end
 _G.InitModMenuTab()
 
 -- ============================================================
--- END OF SCRIPT (REMOVED DUPLICATE STANDALONE MODULE)
+-- END OF SCRIPT
 -- ============================================================
