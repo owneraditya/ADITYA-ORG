@@ -26,6 +26,7 @@ if _G.Mod_NoGrass_Enabled == nil then _G.Mod_NoGrass_Enabled = true end
 if _G.Mod_iPadView_Enabled == nil then _G.Mod_iPadView_Enabled = false end
 if _G.Mod_iPadViewDistance == nil then _G.Mod_iPadViewDistance = 90 end
 if _G.Mod_Skin_Enabled == nil then _G.Mod_Skin_Enabled = false end  -- SKIN TOGGLE
+if not _G.Mod_MagicBullet then _G.Mod_MagicBullet = false end
 
 -- ============================================================
 -- ESP CONFIG (new for wallhack colors/glow/brightness)
@@ -1313,6 +1314,124 @@ pcall(function()
 end)
 
 -- ============================================================
+-- MAGIC BULLET (Bullet Tracking) – add karein
+-- ============================================================
+_G.Mod_MagicBullet = _G.Mod_MagicBullet or false
+
+function _G.EnableMagicBulletHook()
+    if _G.MagicBulletHooked then return end
+    pcall(function()
+        local FireComponent = require("GameLua.Mod.BaseMod.GamePlay.Weapon.FireComponent")
+        if FireComponent then
+            local origFire = FireComponent.Fire
+            FireComponent.Fire = function(self, ...)
+                if _G.Mod_MagicBullet then
+                    local lp = GameplayData.GetPlayerCharacter()
+                    if slua.isValid(lp) then
+                        local enemies = GameplayData.GetAllPlayerCharacters()
+                        local nearestEnemy = nil
+                        local nearestDist = 999999
+                        if enemies then
+                            for _, enemy in pairs(enemies) do
+                                if slua.isValid(enemy) and enemy.TeamID ~= lp.TeamID then
+                                    if enemy.IsAlive and enemy:IsAlive() then
+                                        local dist = lp:GetDistanceTo(enemy)
+                                        if dist < nearestDist then
+                                            nearestDist = dist
+                                            nearestEnemy = enemy
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                        if nearestEnemy then
+                            local headPos = nearestEnemy:GetHeadLocation(false)
+                            if headPos then
+                                _G.MagicTargetHead = headPos
+                                _G.MagicTargetEnemy = nearestEnemy
+                            end
+                        end
+                    end
+                end
+                if origFire then return origFire(self, ...) end
+            end
+            _G.MagicBulletHooked = true
+        end
+    end)
+end
+
+function _G.ApplyMagicBulletWeapon(weapon)
+    if not _G.Mod_MagicBullet then return end
+    pcall(function()
+        if not slua.isValid(weapon) then return end
+        local shootEnt = weapon.ShootWeaponEntity_GEN_VARIABLE or weapon.ShootWeaponEntity
+        if not slua.isValid(shootEnt) then return end
+        if shootEnt.BulletFireSpeed then shootEnt.BulletFireSpeed = 500000 end
+        if shootEnt.BulletTravelingSimulateParam then
+            shootEnt.BulletTravelingSimulateParam.BulletSpeed = 500000
+            shootEnt.BulletTravelingSimulateParam.BulletRange = 500000
+            shootEnt.BulletTravelingSimulateParam.BulletGravity = 0
+            shootEnt.BulletTravelingSimulateParam.BulletDrop = 0
+        end
+        if shootEnt.FireConfig then
+            shootEnt.FireConfig.BulletSpeed = 500000
+            shootEnt.FireConfig.BulletGravity = 0
+        end
+        shootEnt.BulletDropAmount = 0
+        shootEnt.BulletDropGravity = 0
+        shootEnt.HitScanRange = 500000
+        if _G.MagicTargetEnemy and slua.isValid(_G.MagicTargetEnemy) then
+            local headPos = _G.MagicTargetEnemy:GetHeadLocation(false)
+            if headPos and shootEnt.SetTargetLocation then
+                shootEnt:SetTargetLocation(headPos)
+            end
+        end
+    end)
+end
+
+-- Timer jo har 0.2 sec pe weapon apply kare
+local function StartMagicBulletTimer()
+    local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
+    if slua.isValid(pc) and pc.AddGameTimer then
+        if _G._MagicBulletTimer then
+            pcall(function() pc:RemoveGameTimer(_G._MagicBulletTimer) end)
+        end
+        _G._MagicBulletTimer = pc:AddGameTimer(0.2, true, function()
+            pcall(function()
+                local lp = GameplayData.GetPlayerCharacter()
+                if slua.isValid(lp) then
+                    local wm = lp.WeaponManagerComponent
+                    if slua.isValid(wm) then
+                        local weapon = wm.CurrentWeaponReplicated
+                        if slua.isValid(weapon) then
+                            _G.ApplyMagicBulletWeapon(weapon)
+                        end
+                    end
+                end
+            end)
+        end)
+    end
+end
+
+-- Timer start karein (2 sec baad)
+pcall(function()
+    local pc = slua_GameFrontendHUD:GetPlayerController()
+    if slua.isValid(pc) and pc.AddGameTimer then
+        pc:AddGameTimer(2.0, true, function()
+            if not _G._MagicBulletTimer then
+                StartMagicBulletTimer()
+            end
+        end)
+    end
+end)
+
+-- Hook ko ek baar enable karein
+pcall(function()
+    _G.EnableMagicBulletHook()
+end)
+
+
+-- ============================================================
 -- ==================== SKINS MODULE ===========================
 -- ============================================================
 
@@ -2453,7 +2572,7 @@ end
 _G._SetupSkinTimer()
 
 -- ============================================================
--- MENU (updated: added SKIN toggle and new wallhack section)
+-- MENU (updated: added SKIN toggle, Wallhack, and MAGIC BULLET)
 -- ============================================================
 _G.InitModMenuTab = function()
     local LocUtil = _G.LocUtil
@@ -2481,6 +2600,7 @@ _G.InitModMenuTab = function()
         local ModMenuStack = {
             { UI = AliasMap.Title, Text = "ADITYA_ORG SETTINGS" },
 
+            -- ===== AIMBOT =====
             {
                 Key = "ModMenu_Aimbot",
                 UI = AliasMap.Switcher,
@@ -2492,6 +2612,25 @@ _G.InitModMenuTab = function()
                     return true
                 end
             },
+            -- ===== MAGIC BULLET (NEW - AIMBOT KE NICHE) =====
+            {
+                Key = "MagicBullet",
+                UI = AliasMap.Switcher,
+                Text = "MAGIC BULLET",
+                GetFunc = function() return _G.Mod_MagicBullet or false end,
+                SetFunc = function(_, value)
+                    _G.Mod_MagicBullet = value
+                    if value then
+                        pcall(function()
+                            _G.EnableMagicBulletHook()
+                            StartMagicBulletTimer()
+                        end)
+                    end
+                    print("[MOD] MAGIC BULLET: " .. (value and "ON ✓" or "OFF ✗"))
+                    return true
+                end
+            },
+            -- ===== END MAGIC BULLET =====
             {
                 Key = "ESP",
                 UI = AliasMap.Switcher,
@@ -2580,7 +2719,7 @@ _G.InitModMenuTab = function()
                 end
             },
             -- ===== END WALLHACK SECTION =====
-            -- ===== SKIN TOGGLE (NEW) =====
+            -- ===== SKIN TOGGLE =====
             {
                 Key = "Skins",
                 UI = AliasMap.TitleSwitcher,
