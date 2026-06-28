@@ -22,10 +22,10 @@ if not _G.Mod_Aimbot_Enabled then _G.Mod_Aimbot_Enabled = false end
 if not _G.Mod_ESP_Enabled then _G.Mod_ESP_Enabled = false end
 if _G.Mod_Wallhack_Enabled == nil then _G.Mod_Wallhack_Enabled = false end
 if _G.Mod_FPS165_Enabled == nil then _G.Mod_FPS165_Enabled = true end
-if _G.Mod_NoGrass_Enabled == nil then _G.Mod_NoGrass_Enabled = false end
+if _G.Mod_NoGrass_Enabled == nil then _G.Mod_NoGrass_Enabled = true end
 if _G.Mod_iPadView_Enabled == nil then _G.Mod_iPadView_Enabled = false end
 if _G.Mod_iPadViewDistance == nil then _G.Mod_iPadViewDistance = 90 end
-if _G.Mod_Skin_Enabled == nil then _G.Mod_Skin_Enabled = true end  -- SKIN TOGGLE
+if _G.Mod_Skin_Enabled == nil then _G.Mod_Skin_Enabled = false end  -- SKIN TOGGLE
 
 -- ============================================================
 -- ESP CONFIG (new for wallhack colors/glow/brightness)
@@ -36,7 +36,7 @@ _G.ESPConfig = _G.ESPConfig or {
     WallhackInvisibleColor = 3,
     WallhackBrightness = 25,
     WallhackGlow = 3.0,
-    ShowAI = true,
+    ShowAI = false,
 }
 _G.Mod_Wallhack_Enabled = _G.ESPConfig.Wallhack
 
