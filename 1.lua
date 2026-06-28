@@ -782,7 +782,6 @@ function ApplyWallhack()
                                             currentCached:SetVectorParameterValue("DiffuseColor", finalColor)
                                             currentCached:SetVectorParameterValue("EmissiveColor", finalColor)
                                             currentCached:SetVectorParameterValue("ParaScaleOffset", scale)
-                                            -- GLOW PARAMETERS ADDED
                                             currentCached:SetScalarParameterValue("Glow", glow)
                                             currentCached:SetScalarParameterValue("Emissive", glow)
                                         end)
@@ -839,7 +838,7 @@ end
 local function HPBar(pct)
     local n = math.floor((pct * 4) + 0.5)
     local s = ""
-    for i = 1, 4 do s = s .. (i <= n and "▬" or " ") end
+    for i = 1, 4 do s = s .. (i <= n and "▁" or " ") end
     return s
 end
 
