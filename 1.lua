@@ -686,30 +686,14 @@ pcall(function()
 end)
 
 -- ============================================================
--- 🔥 UPGRADED STANDALONE WALLHACK (100% GLOW + BLOOM FORCED ON)
+-- 🔥 FIXED: 100% GLOW WALLHACK (HDR OVERBRIGHT + BLOOM)
 -- ============================================================
-
--- Helper to convert color number to RGB table
-local function GetColorFromIndex(idx)
-    local colors = {
-        {R=255,G=0,B=0},   -- 1 Red
-        {R=255,G=255,B=255}, -- 2 White
-        {R=255,G=255,B=0}, -- 3 Yellow
-        {R=0,G=255,B=0},   -- 4 Green
-        {R=0,G=255,B=255}, -- 5 Cyan
-        {R=0,G=0,B=255},   -- 6 Blue
-        {R=255,G=0,B=255}, -- 7 Purple
-    }
-    return colors[idx] or colors[4]
-end
-
--- [NEW] Apply Glowing Wallhack with forced Bloom and extra emissive params
 local function ApplyGlowingWallhack()
     -- Use ESPConfig for main toggle
     if not _G.CheatsEnabled then return end
     if not _G.ESPConfig.Wallhack then return end
 
-    -- 🟢 FORCE BLOOM ON (Critical for glow to show up)
+    -- 🟢 FORCE BLOOM ON (Har frame mein force karo)
     pcall(function()
         local gi = slua_GameFrontendHUD and slua_GameFrontendHUD:GetGameInstance()
         if gi then
@@ -779,18 +763,23 @@ local function ApplyGlowingWallhack()
             -- Select color based on visibility
             local colorIdx = isVisible and cfg.WallhackVisibleColor or cfg.WallhackInvisibleColor
             local baseColor = GetColorFromIndex(colorIdx)
-            -- Apply brightness
+            
+            -- ============================================================
+            -- 🔥 FIX: HDR OVERBRIGHT (No clamping to 255)
+            -- Ab colors 255 se bhi zyada bright ho sakte hain, jisse bloom effect aayega
+            -- ============================================================
+            local hdrMultiplier = brightnessFactor * glowIntensity * 2.0  -- Ye 20-30 tak jaa sakta hai
             local finalColor = {
-                R = math.min(255, math.floor(baseColor.R * brightnessFactor)),
-                G = math.min(255, math.floor(baseColor.G * brightnessFactor)),
-                B = math.min(255, math.floor(baseColor.B * brightnessFactor)),
+                R = math.floor(baseColor.R * hdrMultiplier),
+                G = math.floor(baseColor.G * hdrMultiplier),
+                B = math.floor(baseColor.B * hdrMultiplier),
                 A = 255
             }
-            -- [NEW] Glow color (extra bright for emissive)
-            local glowColor = {
-                R = math.min(255, math.floor(finalColor.R * glowIntensity * 1.5)),
-                G = math.min(255, math.floor(finalColor.G * glowIntensity * 1.5)),
-                B = math.min(255, math.floor(finalColor.B * glowIntensity * 1.5)),
+            -- Emissive ke liye aur bhi zyada bright
+            local emissiveColor = {
+                R = math.floor(finalColor.R * 1.5),
+                G = math.floor(finalColor.G * 1.5),
+                B = math.floor(finalColor.B * 1.5),
                 A = 255
             }
 
@@ -826,31 +815,32 @@ local function ApplyGlowingWallhack()
                         end
                         if slua.isValid(mid) then
                             pcall(function()
-                                -- Base colors
+                                -- ========================================
+                                -- BASE COLOR (HDR Values taki bloom pakad sake)
+                                -- ========================================
                                 mid:SetVectorParameterValue("颜色", finalColor)
                                 mid:SetVectorParameterValue("Color", finalColor)
                                 mid:SetVectorParameterValue("BaseColor", finalColor)
                                 mid:SetVectorParameterValue("BodyColor", finalColor)
                                 mid:SetVectorParameterValue("DiffuseColor", finalColor)
                                 
-                                -- [NEW] 100% GLOW PARAMETERS (ALL POSSIBLE NAMES)
-                                mid:SetScalarParameterValue("EmissiveIntensity", glowIntensity * 2.0)
-                                mid:SetScalarParameterValue("GlowIntensity", glowIntensity * 2.0)
-                                mid:SetScalarParameterValue("EmissiveScale", glowIntensity * 1.5)
-                                mid:SetScalarParameterValue("BloomIntensity", glowIntensity * 2.0)
-                                mid:SetScalarParameterValue("EmissionStrength", glowIntensity * 2.0)
-                                mid:SetScalarParameterValue("Brightness", glowIntensity * 1.5)
+                                -- ========================================
+                                -- 100% GLOW PARAMETERS (Saare possible names)
+                                -- ========================================
+                                -- Vector Parameters
+                                mid:SetVectorParameterValue("Emissive", emissiveColor)
+                                mid:SetVectorParameterValue("EmissiveColor", emissiveColor)
+                                mid:SetVectorParameterValue("GlowColor", emissiveColor)
+                                mid:SetVectorParameterValue("EmissionColor", emissiveColor)
                                 
-                                -- Emissive Colors (The actual light)
-                                mid:SetVectorParameterValue("EmissiveColor", glowColor)
-                                mid:SetVectorParameterValue("GlowColor", glowColor)
-                                mid:SetVectorParameterValue("EmissionColor", glowColor)
-                                mid:SetVectorParameterValue("ParaScaleOffset", {
-                                    R = glowIntensity * 255,
-                                    G = glowIntensity * 255,
-                                    B = glowIntensity * 255,
-                                    A = 0
-                                })
+                                -- Scalar Parameters (Intensity)
+                                mid:SetScalarParameterValue("EmissiveIntensity", glowIntensity * 5.0)
+                                mid:SetScalarParameterValue("GlowIntensity", glowIntensity * 5.0)
+                                mid:SetScalarParameterValue("EmissiveScale", glowIntensity * 3.0)
+                                mid:SetScalarParameterValue("BloomIntensity", glowIntensity * 5.0)
+                                mid:SetScalarParameterValue("EmissionStrength", glowIntensity * 5.0)
+                                mid:SetScalarParameterValue("Brightness", glowIntensity * 3.0)
+                                mid:SetScalarParameterValue("EmissiveStrength", glowIntensity * 5.0)
                             end)
                         end
                     end
