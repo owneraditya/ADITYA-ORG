@@ -20,25 +20,24 @@ end
 -- ============================================================
 if not _G.Mod_Aimbot_Enabled then _G.Mod_Aimbot_Enabled = false end
 if not _G.Mod_ESP_Enabled then _G.Mod_ESP_Enabled = false end
-if _G.Mod_Wallhack_Enabled == nil then _G.Mod_Wallhack_Enabled = false end
+if _G.Mod_Wallhack_Enabled == nil then _G.Mod_Wallhack_Enabled = false end   -- kept for compatibility
 if _G.Mod_FPS165_Enabled == nil then _G.Mod_FPS165_Enabled = true end
 if _G.Mod_NoGrass_Enabled == nil then _G.Mod_NoGrass_Enabled = false end
 if _G.Mod_iPadView_Enabled == nil then _G.Mod_iPadView_Enabled = false end
 if _G.Mod_iPadViewDistance == nil then _G.Mod_iPadViewDistance = 90 end
 
 -- ============================================================
--- ESP CONFIG (extended with glow color & style)
+-- ESP CONFIG (new for wallhack colors/glow/brightness)
 -- ============================================================
 _G.ESPConfig = _G.ESPConfig or {
-    Wallhack = false,
+    Wallhack = false,                       -- main toggle
     WallhackVisibleColor = 4,               -- 1=Red,2=White,3=Yellow,4=Green,5=Cyan,6=Blue,7=Purple
-    WallhackInvisibleColor = 3,
-    WallhackBrightness = 35,                -- 1..50
-    WallhackGlow = 5.0,                     -- 0..10
-    WallhackGlowColor = 5,                  -- NEW: separate glow color (5=Cyan)
-    WallhackGlowStyle = 2,                  -- NEW: 1=Soft, 2=Neon, 3=Bright
+    WallhackInvisibleColor = 3,             -- same mapping
+    WallhackBrightness = 25,                -- 1..50
+    WallhackGlow = 3.0,                     -- 0..10
     ShowAI = true,
 }
+-- Keep the old toggle in sync
 _G.Mod_Wallhack_Enabled = _G.ESPConfig.Wallhack
 
 if _G.Mod_Chams_GreenEnabled == nil then _G.Mod_Chams_GreenEnabled = false end
@@ -46,8 +45,9 @@ if _G.Mod_Chams_YellowEnabled == nil then _G.Mod_Chams_YellowEnabled = false end
 if _G.Mod_Chams_GreenRGB == nil then _G.Mod_Chams_GreenRGB = {R=0, G=255, B=0, A=255} end
 if _G.Mod_Chams_YellowRGB == nil then _G.Mod_Chams_YellowRGB = {R=255, G=255, B=0, A=255} end
 
+-- ESPConfig (kept for other possible uses, but wallhack no longer uses it)
 _G.ESPConfig = _G.ESPConfig or {
-    RemoveGrass = false,
+    RemoveGrass = false,   -- only grass toggle remains
 }
 
 local require = require
@@ -685,19 +685,18 @@ pcall(function()
 end)
 
 -- ============================================================
--- WALLHACK WITH GLOW COLOR & STYLE
+-- STANDALONE WALLHACK - FULLY GLOW (EXTREME BLOOM)
 -- ============================================================
 
--- Helper to convert color number to RGB table
 local function GetColorFromIndex(idx)
     local colors = {
         {R=255,G=0,B=0},   -- 1 Red
         {R=255,G=255,B=255}, -- 2 White
         {R=255,G=255,B=0}, -- 3 Yellow
         {R=0,G=255,B=0},   -- 4 Green
-        {R=0,G=255,B=255}, -- 5 Cyan
+        {R=0,G=255,B=255}, -- 5 Cyan (Neon)
         {R=0,G=0,B=255},   -- 6 Blue
-        {R=255,G=0,B=255}, -- 7 Purple
+        {R=255,G=0,B=255}, -- 7 Purple (Neon)
     }
     return colors[idx] or colors[4]
 end
@@ -717,11 +716,10 @@ local function ApplyWallHack()
     if not allCharacters then return end
 
     local cfg = _G.ESPConfig
-    local brightnessFactor = cfg.WallhackBrightness / 25.0   -- 1..50 → 0.04..2.0
-    local glowIntensity = cfg.WallhackGlow                   -- 0..10
-    local glowColorIdx = cfg.WallhackGlowColor or 5
-    local glowBase = GetColorFromIndex(glowColorIdx)
-    local style = cfg.WallhackGlowStyle or 2
+    -- FORCED SETTINGS FOR "FULLY GLOW"
+    local visibleColorIdx = 5    -- Cyan (Neon)
+    local invisibleColorIdx = 7  -- Purple (Neon)
+    local ultraGlow = 100.0      -- ★ 100x Intense Bloom (पूरी स्क्रीन पर लाइट फैलेगी)
 
     for _, enemy in pairs(allCharacters) do
         if slua.isValid(enemy) and enemy ~= localPlayer then
@@ -738,7 +736,6 @@ local function ApplyWallHack()
                 if isBot then goto continue end
             end
 
-            -- Collect all skeletal meshes
             local meshes = {}
             if slua.isValid(enemy.Mesh) then
                 table.insert(meshes, enemy.Mesh)
@@ -757,48 +754,40 @@ local function ApplyWallHack()
                 end
             end
 
-            -- Determine visibility
             local isVisible = false
             if slua.isValid(pc) and type(pc.LineOfSightTo) == "function" then
                 pcall(function() isVisible = pc:LineOfSightTo(enemy) end)
             end
 
-            -- Base color (visible/invisible)
-            local colorIdx = isVisible and cfg.WallhackVisibleColor or cfg.WallhackInvisibleColor
+            local colorIdx = isVisible and visibleColorIdx or invisibleColorIdx
             local baseColor = GetColorFromIndex(colorIdx)
+            
+            -- ★ FULLY GLOW: Base Color को FULL Brightness (255) पर फोर्स करो
             local finalColor = {
-                R = math.min(255, math.floor(baseColor.R * brightnessFactor)),
-                G = math.min(255, math.floor(baseColor.G * brightnessFactor)),
-                B = math.min(255, math.floor(baseColor.B * brightnessFactor)),
+                R = baseColor.R,
+                G = baseColor.G,
+                B = baseColor.B,
                 A = 255
             }
-
-            -- Glow multiplier based on style
-            local glowMul = 1.0
-            if style == 1 then      -- Soft
-                glowMul = 0.5 + glowIntensity * 0.5
-            elseif style == 2 then  -- Neon
-                glowMul = 1.0 + glowIntensity * 1.5
-            elseif style == 3 then  -- Bright
-                glowMul = 2.0 + glowIntensity * 2.0
-            end
+            
+            -- ★ Emissive Color को और भी तेज करो (White-Hot Core)
             local emissiveColor = {
-                R = math.min(255, math.floor(glowBase.R * glowMul)),
-                G = math.min(255, math.floor(glowBase.G * glowMul)),
-                B = math.min(255, math.floor(glowBase.B * glowMul)),
+                R = math.min(255, baseColor.R * 2),
+                G = math.min(255, baseColor.G * 2),
+                B = math.min(255, baseColor.B * 2),
                 A = 255
             }
 
             enemy._WH_MIDs = enemy._WH_MIDs or {}
             for _, comp in ipairs(meshes) do
                 if slua.isValid(comp) then
-                    -- Set base material properties (keep Lit shading)
+                    -- Depth Test OFF + Additive Blending (ताकि लाइट फैले)
                     local ok, mat = pcall(function() return comp:GetMaterial(0) end)
                     if ok and slua.isValid(mat) then
                         local ok2, base = pcall(function() return mat:GetBaseMaterial() end)
                         if ok2 and slua.isValid(base) then
-                            base.bDisableDepthTest = true   -- wallhack
-                            -- Do NOT change ShadingModel or BlendMode – keep Lit/Opaque
+                            base.bDisableDepthTest = true
+                            base.BlendMode = 2
                         end
                     end
                     comp.UseScopeDistanceCulling = false
@@ -820,16 +809,24 @@ local function ApplyWallHack()
                         end
                         if slua.isValid(mid) then
                             pcall(function()
-                                -- Base color
+                                -- 1. Base Color (पूरा भरा हुआ रंग)
                                 mid:SetVectorParameterValue("颜色", finalColor)
                                 mid:SetVectorParameterValue("Color", finalColor)
                                 mid:SetVectorParameterValue("BaseColor", finalColor)
                                 mid:SetVectorParameterValue("BodyColor", finalColor)
                                 mid:SetVectorParameterValue("DiffuseColor", finalColor)
-                                -- Emissive glow (the lighting effect)
+
+                                -- 2. ★ EXTREME GLOW SCALARS (100x ताकि Bloom पूरी तरह एक्टिव हो)
+                                mid:SetScalarParameterValue("EmissiveIntensity", ultraGlow)
+                                mid:SetScalarParameterValue("GlowIntensity", ultraGlow)
+                                mid:SetScalarParameterValue("EmissiveScale", ultraGlow)
+                                mid:SetScalarParameterValue("Intensity", ultraGlow)
+                                mid:SetScalarParameterValue("Brightness", ultraGlow)
+                                mid:SetScalarParameterValue("Bloom", ultraGlow)
+
+                                -- 3. Emissive Color (रंगीन रोशनी)
                                 mid:SetVectorParameterValue("EmissiveColor", emissiveColor)
-                                mid:SetScalarParameterValue("EmissiveIntensity", glowMul * 0.5)
-                                mid:SetScalarParameterValue("GlowIntensity", glowMul)
+                                mid:SetVectorParameterValue("ParaScaleOffset", {R=emissiveColor.R, G=emissiveColor.G, B=emissiveColor.B, A=0})
                             end)
                         end
                     end
@@ -855,10 +852,12 @@ local function StartWallhackTimer()
     end
 end
 
+-- Start immediately if possible, otherwise wait for controller
 pcall(function()
     StartWallhackTimer()
 end)
 
+-- Watchdog: restart timer if controller changes (every 2 seconds)
 pcall(function()
     local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
     if slua.isValid(pc) and pc.AddGameTimer then
@@ -1339,7 +1338,7 @@ pcall(function()
 end)
 
 -- ============================================================
--- MENU (updated with Glow Color & Glow Style)
+-- MENU (updated: new wallhack section)
 -- ============================================================
 _G.InitModMenuTab = function()
     local LocUtil = _G.LocUtil
@@ -1389,8 +1388,8 @@ _G.InitModMenuTab = function()
                     return true
                 end
             },
-            -- ===== WALLHACK SECTION =====
-            { UI = AliasMap.Title, Text = "--- WALLHACK (LIGHTING GLOW) ---" },
+            -- ===== NEW WALLHACK SECTION =====
+            { UI = AliasMap.Title, Text = "--- WALLHACK ---" },
             {
                 Key = "WH_Enabled",
                 UI = AliasMap.TitleSwitcher,
@@ -1398,7 +1397,7 @@ _G.InitModMenuTab = function()
                 GetFunc = function() return _G.ESPConfig.Wallhack end,
                 SetFunc = function(_, value)
                     _G.ESPConfig.Wallhack = value
-                    _G.Mod_Wallhack_Enabled = value
+                    _G.Mod_Wallhack_Enabled = value   -- keep sync
                     print("[MOD] WALLHACK: " .. (value and "ON ✓" or "OFF ✗"))
                     return true
                 end
@@ -1435,7 +1434,7 @@ _G.InitModMenuTab = function()
                 Max = 50,
                 Step = 1,
                 IsPercent = false,
-                GetFunc = function() return _G.ESPConfig.WallhackBrightness or 35 end,
+                GetFunc = function() return _G.ESPConfig.WallhackBrightness or 25 end,
                 SetFunc = function(_, value)
                     _G.ESPConfig.WallhackBrightness = value
                     return true
@@ -1449,35 +1448,9 @@ _G.InitModMenuTab = function()
                 Max = 10,
                 Step = 0.5,
                 IsPercent = false,
-                GetFunc = function() return _G.ESPConfig.WallhackGlow or 5.0 end,
+                GetFunc = function() return _G.ESPConfig.WallhackGlow or 3.0 end,
                 SetFunc = function(_, value)
                     _G.ESPConfig.WallhackGlow = value
-                    return true
-                end
-            },
-            -- NEW: Glow Color
-            {
-                Key = "WH_GlowColor",
-                UI = AliasMap.Switcher,
-                Text = "Glow Color",
-                SwitcherText = {"Red","White","Yellow","Green","Cyan","Blue","Purple"},
-                SwitcherValue = {1,2,3,4,5,6,7},
-                GetFunc = function() return _G.ESPConfig.WallhackGlowColor or 5 end,
-                SetFunc = function(_, value)
-                    _G.ESPConfig.WallhackGlowColor = value
-                    return true
-                end
-            },
-            -- NEW: Glow Style
-            {
-                Key = "WH_GlowStyle",
-                UI = AliasMap.Switcher,
-                Text = "Glow Style",
-                SwitcherText = {"Soft","Neon","Bright"},
-                SwitcherValue = {1,2,3},
-                GetFunc = function() return _G.ESPConfig.WallhackGlowStyle or 2 end,
-                SetFunc = function(_, value)
-                    _G.ESPConfig.WallhackGlowStyle = value
                     return true
                 end
             },
@@ -1491,7 +1464,7 @@ _G.InitModMenuTab = function()
                     return true
                 end
             },
-            -- ===== END WALLHACK =====
+            -- ===== END WALLHACK SECTION =====
             {
                 Key = "FPS165",
                 UI = AliasMap.Switcher,
