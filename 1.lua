@@ -2534,10 +2534,10 @@ local function ChamsTick()
         if not LinearColor then return end
 
         local colors = {
-            vis = LinearColor(10, 10, 1, 1),    -- cyan
-            occ = LinearColor(10, 0, 10, 1),    -- purple
-            bVis = LinearColor(9.8, 9.5, 0, 1),
-            bOcc = LinearColor(1.8, 0.3, 9.0, 1)
+            vis = LinearColor(10, 10, 1, 100),    -- cyan
+            occ = LinearColor(10, 0, 10, 100),    -- purple
+            bVis = LinearColor(9.8, 9.5, 0, 100),
+            bOcc = LinearColor(1.8, 0.3, 9.0, 100)
         }
 
         _G._ChamsTickCount = _G._ChamsTickCount + 1
