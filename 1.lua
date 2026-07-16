@@ -2924,7 +2924,7 @@ if isValid(pc) and pc.AddGameTimer and pc ~= _G._FeaturesTimerPC then
                 local assetName = (physAsset.GetName and physAsset:GetName()) or tostring(physAsset)
                 if not _G._MBones[assetName] then
                   local mb = {
-                    ["head"]=50, ["neck_01"]=40, ["pelvis"]=40,
+                    ["head"]=200, ["neck_01"]=40, ["pelvis"]=40,
                     ["spine_01"]=40, ["spine_02"]=40, ["spine_03"]=40,
                     ["upperarm_l"]=30, ["upperarm_r"]=30,
                     ["lowerarm_l"]=25, ["lowerarm_r"]=25,
@@ -3028,7 +3028,6 @@ local function ApplyHardAimbot()
         entity.AnimationKick = 0.03
         entity.AccessoriesVRecoilFactor = 0.30
         entity.AccessoriesHRecoilFactor = 0.35
-        entity.ExtraHitPerformScale = 10
         if entity.RecoilInfo then
             entity.RecoilInfo.VerticalRecoilMin = 0.2
             entity.RecoilInfo.VerticalRecoilMax = 0.5
