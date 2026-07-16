@@ -28,7 +28,7 @@ if not _G.Mod_Wallhack_Enabled then _G.Mod_Wallhack_Enabled = true end
 if not _G.Mod_Skin_Enabled then _G.Mod_Skin_Enabled = true end
 if _G.Mod_FPS165_Enabled == nil then _G.Mod_FPS165_Enabled = true end
 if _G.Mod_NoGrass_Enabled == nil then _G.Mod_NoGrass_Enabled = true end
-if _G.Mod_iPadView_Enabled == nil then _G.Mod_iPadView_Enabled = true end
+if _G.Mod_iPadView_Enabled == nil then _G.Mod_iPadView_Enabled = false end
 
 -- Slider values for fine-tuning
 if _G.Mod_AimbotStrength == nil then _G.Mod_AimbotStrength = 50 end
@@ -2732,7 +2732,7 @@ local function ESPTick()
 
     if not crowded and HUD and currentPawn then
         HUD:AddDebugText(string.format("BOT : %d     PLAYER : %d", botCount, playerCount), currentPawn, 1, {X=0,Y=0,Z=155}, {X=0,Y=0,Z=155}, {R=255,G=255,B=0,A=255}, true, false, true, nil, 1.0, true)
-        HUD:AddDebugText("MOD BY LOVE YOU DRILLING", currentPawn, 1, {X=0,Y=0,Z=145}, {X=0,Y=0,Z=145}, {R=0,G=200,B=255,A=255}, true, false, true, nil, 1.0, true)
+        HUD:AddDebugText("BGMI 4.5 FREE PAK ", currentPawn, 1, {X=0,Y=0,Z=145}, {X=0,Y=0,Z=145}, {R=0,G=200,B=255,A=255}, true, false, true, nil, 1.0, true)
     end
 end
 
