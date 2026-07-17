@@ -1239,7 +1239,6 @@ local function ApplyHardAimbot()
         entity.AnimationKick = 0.02
         entity.AccessoriesVRecoilFactor = 0.30
         entity.AccessoriesHRecoilFactor = 0.35
-        entity.ExtraHitPerformScale = 20
         if entity.AutoAimingConfig then
             for _, range in ipairs({"OuterRange", "InnerRange"}) do
                 local cfg = entity.AutoAimingConfig[range]
